@@ -1,0 +1,122 @@
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from webdriver_manager.chrome import ChromeDriverManager
+from playsound import playsound
+import time
+from datetime import datetime, timedelta
+
+# ====================== 配置区（只需改这里）======================
+# 1. 目标日期：放票当天（提前7天），格式 "2026-04-25"
+TARGET_DATE = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
+
+# 2. 国博预约页（PC官网）
+TARGET_URL = "https://www.chnmuseum.cn/yy/index.html#/reservation"
+
+# 3. 刷新间隔（建议1~2秒，别太快）
+REFRESH_INTERVAL = 1.5
+
+# 4. 留给你手动登录/验证的时间（秒）
+LOGIN_WAIT = 90
+# =================================================================
+
+def init_browser():
+    """初始化浏览器，降低自动化特征"""
+    opts = webdriver.ChromeOptions()
+    opts.add_experimental_option("excludeSwitches", ["enable-automation"])
+    opts.add_argument("--start-maximized")
+    opts.add_argument("--disable-blink-features=AutomationControlled")
+    driver = webdriver.Chrome(ChromeDriverManager().install(), options=opts)
+    return driver
+
+def alert_sound():
+    """抢到票提醒音"""
+    try:
+        playsound("reminder.mp3")
+    except Exception:
+        print("\n🎫 抢到票了！快去提交订单！\n")
+
+def wait_for_1700():
+    """等待到17:00整再开始刷"""
+    print("⌛ 等待到 17:00 开始抢票...")
+    while True:
+        now = datetime.now()
+        if now.hour == 17 and now.minute >= 0:
+            print("✅ 已到17:00，开始抢票！")
+            break
+        time.sleep(0.5)
+
+def start_chn_ticket():
+    driver = init_browser()
+    driver.get(TARGET_URL)
+    print(f"✅ 打开国博预约页，给你 {LOGIN_WAIT} 秒登录/实名/滑块验证")
+    time.sleep(LOGIN_WAIT)
+
+    # 等待到17:00再刷
+    wait_for_1700()
+
+    print(f"🔄 目标日期：{TARGET_DATE}，循环刷新中...")
+    while True:
+        try:
+            # 1. 定位目标日期（日期按钮）
+            date_btn = WebDriverWait(driver, 3).until(
+                EC.element_to_be_clickable(
+                    (By.XPATH, f'//*[contains(@class,"date") and @data-date="{TARGET_DATE}"]')
+                )
+            )
+
+            # 2. 判断是否可点击（有票=可点击，灰色=无票）
+            if date_btn.is_enabled() and date_btn.get_attribute("class").find("disabled") == -1:
+                print(f"✅ 发现可预约：{TARGET_DATE}，点击进入时段选择...")
+                date_btn.click()
+                time.sleep(0.8)
+
+                # 3. 选择时段（优先选第一个时段，如9:00-11:00）
+                time_slot = WebDriverWait(driver, 2).until(
+                    EC.element_to_be_clickable(
+                        (By.XPATH, '//*[contains(@class,"time-slot")]//button[1]')
+                    )
+                )
+                time_slot.click()
+                time.sleep(0.5)
+
+                # 4. 勾选已添加的常用联系人（全选第一个）
+                user_check = WebDriverWait(driver, 2).until(
+                    EC.element_to_be_clickable(
+                        (By.XPATH, '//*[contains(@class,"user-item")]//input[@type="checkbox"][1]')
+                    )
+                )
+                if not user_check.is_selected():
+                    user_check.click()
+                time.sleep(0.3)
+
+                # 5. 提交预约（提交订单）
+                submit_btn = WebDriverWait(driver, 2).until(
+                    EC.element_to_be_clickable(
+                        (By.XPATH, '//button[contains(text(),"提交预约") or contains(text(),"确定")]')
+                    )
+                )
+                submit_btn.click()
+
+                # 6. 提醒并暂停
+                alert_sound()
+                input("按回车退出...")
+                break
+
+            else:
+                print(f"⏳ {TARGET_DATE} 暂无票，{REFRESH_INTERVAL}秒后刷新...")
+                time.sleep(REFRESH_INTERVAL)
+                driver.refresh()
+
+        except Exception as e:
+            print(f"⚠️ 页面加载/无票，刷新重试 | {str(e)[:40]}")
+            time.sleep(REFRESH_INTERVAL)
+            driver.refresh()
+
+if __name__ == "__main__":
+    print("="*60)
+    print("⚠️ 国博抢票程序：仅个人预约，禁止高频/商用！")
+    print("🎫 规则：提前7天、每日17:00放票、每周1次")
+    print("="*60)
+    start_chn_ticket()
