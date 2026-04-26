@@ -1,0 +1,86 @@
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from webdriver_manager.chrome import ChromeDriverManager
+from playsound import playsound
+import time
+
+# ====================== 【必须修改】配置区 ======================
+TARGET_URL = "https://www.你的票务网站.com"  # 目标抢票页面
+TARGET_SECTION = "看台票"  # 你要抢的票档名称
+REFRESH_INTERVAL = 1  # 刷新间隔（秒），不要太小，避免被封
+LOGIN_WAIT_TIME = 60  # 留给你手动登录的时间
+# =================================================================
+
+def init_browser():
+    """初始化浏览器"""
+    option = webdriver.ChromeOptions()
+    option.add_experimental_option("excludeSwitches", ["enable-automation"])  # 隐藏自动化痕迹
+    option.add_argument("--start-maximized")  # 窗口最大化
+    
+    driver = webdriver.Chrome(
+        ChromeDriverManager().install(),
+        options=option
+    )
+    return driver
+
+def play_reminder():
+    """抢到票后播放提醒音"""
+    try:
+        playsound("reminder.mp3")  # 自己放一个提示音文件
+    except:
+        print("\n" + "="*50)
+        print("🎫 抢到票了！！！")
+        print("="*50 + "\n")
+
+def start_ticket_bot():
+    driver = init_browser()
+    driver.get(TARGET_URL)
+    print("✅ 已打开抢票页面，请在60秒内完成登录/验证")
+    time.sleep(LOGIN_WAIT_TIME)  # 手动登录，非常关键！
+    
+    print("🔄 开始循环抢票...")
+    while True:
+        try:
+            # 1. 查找目标票档（根据网站HTML修改）
+            ticket_element = WebDriverWait(driver, 2).until(
+                EC.presence_of_element_located(
+                    (By.XPATH, f'//*[contains(text(), "{TARGET_SECTION}")]')
+                )
+            )
+            
+            # 2. 判断是否有票（根据网站文字判断，如“立即购买”“有票”）
+            if "立即购买" in ticket_element.text or "有票" in ticket_element.text:
+                print("✅ 发现有票！开始点击下单...")
+                ticket_element.click()
+                
+                # 3. 点击确认订单（修改为你目标网站的按钮）
+                try:
+                    confirm_btn = driver.find_element(By.XPATH, '//*[contains(text(), "确认订单")]')
+                    confirm_btn.click()
+                except:
+                    pass
+                
+                # 4. 提醒并停止
+                play_reminder()
+                input("按回车退出程序...")
+                break
+            
+            else:
+                # 无票则刷新
+                print(f"⏳ {TARGET_SECTION} 暂无票，{REFRESH_INTERVAL}秒后刷新...")
+                time.sleep(REFRESH_INTERVAL)
+                driver.refresh()
+
+        except Exception as e:
+            # 元素没找到 → 刷新
+            print(f"⚠️  页面加载中/无票，刷新重试 | 错误：{str(e)[:30]}")
+            time.sleep(REFRESH_INTERVAL)
+            driver.refresh()
+
+if __name__ == "__main__":
+    print("="*60)
+    print("⚠️  声明：本程序仅用于个人正常购票，严禁违规使用！")
+    print("="*60)
+    start_ticket_bot()
