@@ -1,0 +1,116 @@
+import tkinter as tk
+from tkinter import ttk, messagebox
+from openpyxl import load_workbook
+import os
+
+# 读取单元格
+def read_cell():
+    file_name = entry_file.get().strip()
+    cell_addr = entry_read_cell.get().strip().upper()
+    
+    if not file_name:
+        messagebox.showerror("错误", "请输入Excel文件名！")
+        return
+    if not cell_addr:
+        messagebox.showerror("错误", "请输入要读取的单元格地址（如A1）！")
+        return
+    
+    if not file_name.endswith(".xlsx"):
+        file_name += ".xlsx"
+    if not os.path.exists(file_name):
+        messagebox.showerror("错误", f"未找到文件：{file_name}\n请把文件放在本程序同一文件夹！")
+        return
+    
+    try:
+        wb = load_workbook(file_name)
+        sheet = wb.active
+        value = sheet[cell_addr].value
+        wb.close()
+        
+        messagebox.showinfo("读取结果", f"单元格 {cell_addr} 的值为：\n{value}")
+    except Exception as e:
+        messagebox.showerror("读取失败", f"错误：{str(e)}")
+
+# 写入单元格
+def write_cell():
+    file_name = entry_file.get().strip()
+    cell_addr = entry_write_cell.get().strip().upper()
+    cell_value = entry_write_value.get().strip()
+    
+    if not file_name:
+        messagebox.showerror("错误", "请输入Excel文件名！")
+        return
+    if not cell_addr:
+        messagebox.showerror("错误", "请输入要写入的单元格地址（如A1）！")
+        return
+    
+    if not file_name.endswith(".xlsx"):
+        file_name += ".xlsx"
+    if not os.path.exists(file_name):
+        messagebox.showerror("错误", f"未找到文件：{file_name}\n请把文件放在本程序同一文件夹！")
+        return
+    
+    try:
+        wb = load_workbook(file_name)
+        sheet = wb.active
+        sheet[cell_addr] = cell_value
+        
+        # 保存为新文件，避免覆盖原文件
+        save_name = "modified_" + os.path.basename(file_name)
+        wb.save(save_name)
+        wb.close()
+        
+        messagebox.showinfo("写入成功", f"已将值写入 {cell_addr}，文件已保存为：\n{save_name}")
+    except Exception as e:
+        messagebox.showerror("写入失败", f"错误：{str(e)}")
+
+# 创建界面
+root = tk.Tk()
+root.title("Excel 单元格读写工具")
+root.geometry("500x350")
+root.resizable(False, False)
+
+style = ttk.Style()
+style.configure(".", font=("微软雅黑", 11))
+
+# 标题
+label_title = ttk.Label(root, text="Excel 单元格读写工具", font=("微软雅黑", 16, "bold"))
+label_title.pack(pady=15)
+
+# 文件名输入
+frame_file = ttk.Frame(root)
+frame_file.pack(pady=5)
+ttk.Label(frame_file, text="Excel文件名：").grid(row=0, column=0, padx=5)
+entry_file = ttk.Entry(frame_file, width=25, font=("微软雅黑", 11))
+entry_file.grid(row=0, column=1, padx=5)
+
+# 读取区域
+frame_read = ttk.LabelFrame(root, text="读取单元格")
+frame_read.pack(pady=10, padx=20, fill="x")
+
+ttk.Label(frame_read, text="单元格地址（如A1）：").grid(row=0, column=0, padx=5, pady=10)
+entry_read_cell = ttk.Entry(frame_read, width=15, font=("微软雅黑", 11))
+entry_read_cell.grid(row=0, column=1, padx=5, pady=10)
+btn_read = ttk.Button(frame_read, text="读取", command=read_cell)
+btn_read.grid(row=0, column=2, padx=10, pady=10)
+
+# 写入区域
+frame_write = ttk.LabelFrame(root, text="写入单元格")
+frame_write.pack(pady=10, padx=20, fill="x")
+
+ttk.Label(frame_write, text="单元格地址（如A1）：").grid(row=0, column=0, padx=5, pady=5)
+entry_write_cell = ttk.Entry(frame_write, width=15, font=("微软雅黑", 11))
+entry_write_cell.grid(row=0, column=1, padx=5, pady=5)
+
+ttk.Label(frame_write, text="写入内容：").grid(row=1, column=0, padx=5, pady=5)
+entry_write_value = ttk.Entry(frame_write, width=25, font=("微软雅黑", 11))
+entry_write_value.grid(row=1, column=1, padx=5, pady=5)
+
+btn_write = ttk.Button(frame_write, text="写入并保存", command=write_cell)
+btn_write.grid(row=1, column=2, padx=10, pady=5)
+
+# 说明
+label_info = ttk.Label(root, text="使用说明：把Excel文件和本程序放在同一文件夹，输入名称即可", foreground="gray")
+label_info.pack(pady=5)
+
+root.mainloop()
